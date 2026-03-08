@@ -14,7 +14,7 @@ export function useApplications() {
 
     const { data } = await supabase
       .from('applications')
-      .select('*, job:jobs!applications_job_id_fkey(title, estate, hours_per_week, status)')
+      .select('*, job:jobs!applications_job_id_fkey(title, estate, required_slots, status)')
       .eq('jobber_id', user.id)
       .order('created_at', { ascending: false });
 
@@ -34,5 +34,16 @@ export function useApplications() {
     if (error) throw error;
   }
 
-  return { applications, loading, applyToJob, refresh: fetchApplications };
+  async function withdrawApplication(applicationId: string) {
+    if (!user) return;
+    const { error } = await supabase
+      .from('applications')
+      .update({ status: 'withdrawn_by_jobber' })
+      .eq('id', applicationId)
+      .eq('jobber_id', user.id);
+    if (error) throw error;
+    await fetchApplications();
+  }
+
+  return { applications, loading, applyToJob, withdrawApplication, refresh: fetchApplications };
 }

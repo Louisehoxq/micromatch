@@ -1,8 +1,18 @@
 export type UserRole = 'jobber' | 'creator';
-export type ApplicationStatus = 'pending' | 'accepted' | 'rejected';
+export type ApplicationStatus = 'pending' | 'under_review' | 'accepted' | 'withdrawn_by_creator' | 'withdrawn_by_jobber';
 export type JobStatus = 'open' | 'closed' | 'filled';
 
 export type DayOfWeek = 'Mon' | 'Tue' | 'Wed' | 'Thu' | 'Fri' | 'Sat' | 'Sun';
+export type TimeSlotPeriod = 'morning' | 'afternoon' | 'evening';
+export type TimeSlot = `${DayOfWeek}_${TimeSlotPeriod}`;
+
+export const APPLICATION_STATUS_LABELS: Record<ApplicationStatus, string> = {
+  pending: 'Submitted',
+  under_review: 'Under Review',
+  accepted: 'Committed',
+  withdrawn_by_creator: 'Withdrawn by Creator',
+  withdrawn_by_jobber: 'Withdrawn by You',
+};
 
 export interface Profile {
   id: string;
@@ -18,8 +28,17 @@ export interface JobberProfile {
   id: string;
   date_of_birth: string | null;
   bio: string;
-  hours_per_week: number;
-  available_days: DayOfWeek[];
+  available_slots: TimeSlot[];
+  photo_id_url: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreatorProfile {
+  id: string;
+  bio: string;
+  contact_number: string;
+  avatar_url: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -40,7 +59,7 @@ export interface JobberSkill {
   id: string;
   jobber_id: string;
   skill_id: string;
-  proficiency: number; // 1-5
+  proficiency: 1 | 2 | 3;
 }
 
 export interface Job {
@@ -49,10 +68,11 @@ export interface Job {
   title: string;
   description: string;
   estate: string;
-  hours_per_week: number;
-  required_days: DayOfWeek[];
+  required_slots: TimeSlot[];
   duration_weeks: number | null;
   status: JobStatus;
+  remuneration_per_hour_min: number | null;
+  remuneration_per_hour_max: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -61,7 +81,15 @@ export interface JobSkill {
   id: string;
   job_id: string;
   skill_id: string;
-  min_proficiency: number; // 1-5
+  min_proficiency: 1 | 2 | 3;
+}
+
+export interface JobPhoto {
+  id: string;
+  job_id: string;
+  photo_url: string;
+  display_order: number;
+  created_at: string;
 }
 
 export interface Application {
@@ -79,14 +107,18 @@ export interface MatchedJob {
   title: string;
   description: string;
   estate: string;
-  hours_per_week: number;
-  required_days: DayOfWeek[];
+  required_slots: TimeSlot[];
   duration_weeks: number | null;
   creator_name: string;
   skill_score: number;
   location_score: number;
   availability_score: number;
   total_score: number;
+  creator_bio: string;
+  contact_number: string;
+  remuneration_per_hour_min: number | null;
+  remuneration_per_hour_max: number | null;
+  job_photos: { photo_url: string; display_order: number }[];
 }
 
 // Joined types for UI
@@ -100,7 +132,7 @@ export interface JobberSkillWithDetails extends JobberSkill {
 }
 
 export interface ApplicationWithJob extends Application {
-  job: Pick<Job, 'title' | 'estate' | 'hours_per_week' | 'status'>;
+  job: Pick<Job, 'title' | 'estate' | 'required_slots' | 'status'>;
 }
 
 export interface ApplicationWithJobber extends Application {

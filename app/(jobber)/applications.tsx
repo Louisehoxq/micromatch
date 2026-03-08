@@ -5,13 +5,37 @@ import {
   FlatList,
   StyleSheet,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { useApplications } from '../../src/hooks/useApplications';
 import { Card } from '../../src/components/ui/Card';
 import { Badge } from '../../src/components/ui/Badge';
+import { Button } from '../../src/components/ui/Button';
+import { APPLICATION_STATUS_LABELS } from '../../src/types/database';
 
 export default function ApplicationsScreen() {
-  const { applications, loading, refresh } = useApplications();
+  const { applications, loading, refresh, withdrawApplication } = useApplications();
+
+  function handleWithdraw(applicationId: string) {
+    Alert.alert(
+      'Withdraw Application',
+      'Are you sure you want to withdraw this application?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Withdraw',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await withdrawApplication(applicationId);
+            } catch (error: any) {
+              Alert.alert('Error', error.message);
+            }
+          },
+        },
+      ]
+    );
+  }
 
   if (loading) {
     return (
@@ -37,19 +61,34 @@ export default function ApplicationsScreen() {
       contentContainerStyle={styles.list}
       onRefresh={refresh}
       refreshing={loading}
-      renderItem={({ item }) => (
-        <Card>
-          <View style={styles.row}>
-            <View style={styles.info}>
-              <Text style={styles.title}>{(item.job as any)?.title}</Text>
-              <Text style={styles.detail}>
-                {(item.job as any)?.estate} · {(item.job as any)?.hours_per_week}h/week
-              </Text>
+      renderItem={({ item }) => {
+        const job = item.job as any;
+        const hoursPerWeek = (job?.required_slots?.length ?? 0) * 3;
+        const statusLabel = APPLICATION_STATUS_LABELS[item.status] ?? item.status;
+        const canWithdraw = item.status === 'pending' || item.status === 'under_review';
+
+        return (
+          <Card>
+            <View style={styles.row}>
+              <View style={styles.info}>
+                <Text style={styles.title}>{job?.title}</Text>
+                <Text style={styles.detail}>
+                  {job?.estate} · {hoursPerWeek} hours required/week
+                </Text>
+              </View>
+              <Badge status={item.status} label={statusLabel} />
             </View>
-            <Badge label={item.status} />
-          </View>
-        </Card>
-      )}
+            {canWithdraw && (
+              <Button
+                title="Withdraw"
+                variant="danger"
+                onPress={() => handleWithdraw(item.id)}
+                style={{ marginTop: 10 }}
+              />
+            )}
+          </Card>
+        );
+      }}
     />
   );
 }

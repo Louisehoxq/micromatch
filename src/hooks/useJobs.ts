@@ -1,18 +1,19 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../providers/AuthProvider';
-import { Job, JobStatus } from '../types/database';
+import { Job, JobStatus, TimeSlot } from '../types/database';
 import { SelectedSkill } from '../components/SkillPicker';
-import { DayOfWeek } from '../types/database';
 
 interface CreateJobInput {
   title: string;
   description: string;
   estate: string;
-  hours_per_week: number;
-  required_days: DayOfWeek[];
+  requiredSlots: TimeSlot[];
   duration_weeks: number | null;
   skills: SelectedSkill[];
+  remuneration_per_hour_min?: number | null;
+  remuneration_per_hour_max?: number | null;
+  photos?: string[];
 }
 
 export function useJobs() {
@@ -55,9 +56,10 @@ export function useJobs() {
         title: input.title,
         description: input.description,
         estate: input.estate,
-        hours_per_week: input.hours_per_week,
-        required_days: input.required_days,
+        required_slots: input.requiredSlots,
         duration_weeks: input.duration_weeks,
+        remuneration_per_hour_min: input.remuneration_per_hour_min ?? null,
+        remuneration_per_hour_max: input.remuneration_per_hour_max ?? null,
       })
       .select()
       .single();
@@ -72,6 +74,16 @@ export function useJobs() {
       }));
       const { error: skillErr } = await supabase.from('job_skills').insert(rows);
       if (skillErr) throw skillErr;
+    }
+
+    if (input.photos && input.photos.length > 0 && job) {
+      const photoRows = input.photos.map((url, index) => ({
+        job_id: job.id,
+        photo_url: url,
+        display_order: index,
+      }));
+      const { error: photoErr } = await supabase.from('job_photos').insert(photoRows);
+      if (photoErr) throw photoErr;
     }
 
     await fetchJobs();

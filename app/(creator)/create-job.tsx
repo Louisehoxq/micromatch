@@ -6,31 +6,72 @@ import {
   StyleSheet,
   Alert,
   ActivityIndicator,
+  TouchableOpacity,
+  Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useJobs } from '../../src/hooks/useJobs';
 import { useSkills } from '../../src/hooks/useSkills';
+import { useImageUpload } from '../../src/hooks/useImageUpload';
 import { Input } from '../../src/components/ui/Input';
 import { Button } from '../../src/components/ui/Button';
 import { DayPicker } from '../../src/components/DayPicker';
 import { SkillPicker, SelectedSkill } from '../../src/components/SkillPicker';
 import { ESTATES } from '../../src/lib/estates';
-import { DayOfWeek } from '../../src/types/database';
+import { REMUNERATION_GUIDE } from '../../src/lib/remunerationGuide';
+import { TimeSlot } from '../../src/types/database';
 import { Picker } from '@react-native-picker/picker';
+import { useAuth } from '../../src/providers/AuthProvider';
+
+const MAX_PHOTOS = 3;
 
 export default function CreateJobScreen() {
   const router = useRouter();
+  const { user } = useAuth();
   const { createJob } = useJobs();
   const { categories, skills, loading: skillsLoading } = useSkills();
+  const { pickAndUpload } = useImageUpload();
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [estate, setEstate] = useState('');
-  const [hoursPerWeek, setHoursPerWeek] = useState('');
   const [durationWeeks, setDurationWeeks] = useState('');
-  const [requiredDays, setRequiredDays] = useState<DayOfWeek[]>([]);
+  const [requiredSlots, setRequiredSlots] = useState<TimeSlot[]>([]);
   const [requiredSkills, setRequiredSkills] = useState<SelectedSkill[]>([]);
+  const [remunerationMin, setRemunerationMin] = useState('');
+  const [remunerationMax, setRemunerationMax] = useState('');
+  const [photos, setPhotos] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
+
+  // Detect active category from selected skills
+  const activeCategoryId: string | null = (() => {
+    if (requiredSkills.length === 0) return null;
+    const firstSkill = skills.find(sk => sk.id === requiredSkills[0].skill_id);
+    return firstSkill?.category_id ?? null;
+  })();
+
+  const activeCategory = activeCategoryId
+    ? categories.find(c => c.id === activeCategoryId)
+    : null;
+
+  const remunerationGuide = activeCategory ? REMUNERATION_GUIDE[activeCategory.name] : null;
+
+  async function handleAddPhoto(index: number) {
+    if (!user) return;
+    const path = `jobs/${user.id}/${Date.now()}_${index}.jpg`;
+    const url = await pickAndUpload('job-photos', path);
+    if (url) {
+      const updated = [...photos];
+      updated[index] = url;
+      setPhotos(updated);
+    }
+  }
+
+  function handleRemovePhoto(index: number) {
+    const updated = [...photos];
+    updated.splice(index, 1);
+    setPhotos(updated);
+  }
 
   async function handleCreate() {
     if (!title || !estate) {
@@ -43,12 +84,14 @@ export default function CreateJobScreen() {
         title,
         description,
         estate,
-        hours_per_week: parseInt(hoursPerWeek) || 0,
-        required_days: requiredDays,
+        requiredSlots,
         duration_weeks: durationWeeks ? parseInt(durationWeeks) : null,
         skills: requiredSkills,
+        remuneration_per_hour_min: remunerationMin ? parseFloat(remunerationMin) : null,
+        remuneration_per_hour_max: remunerationMax ? parseFloat(remunerationMax) : null,
+        photos,
       });
-      alert( 'Job posted!');
+      alert('Job posted!');
       router.back();
     } catch (error: any) {
       alert('Error: ' + error.message);
@@ -89,13 +132,6 @@ export default function CreateJobScreen() {
       </View>
 
       <Input
-        label="Hours per week"
-        value={hoursPerWeek}
-        onChangeText={setHoursPerWeek}
-        keyboardType="numeric"
-        placeholder="e.g. 10"
-      />
-      <Input
         label="Duration (weeks, optional)"
         value={durationWeeks}
         onChangeText={setDurationWeeks}
@@ -103,7 +139,56 @@ export default function CreateJobScreen() {
         placeholder="e.g. 4"
       />
 
-      <DayPicker label="Required Days" selected={requiredDays} onChange={setRequiredDays} />
+      <View style={styles.remunerationRow}>
+        <View style={styles.remunerationField}>
+          <Input
+            label="Min $/hr"
+            value={remunerationMin}
+            onChangeText={setRemunerationMin}
+            keyboardType="decimal-pad"
+            placeholder="e.g. 10"
+          />
+        </View>
+        <View style={styles.remunerationField}>
+          <Input
+            label="Max $/hr"
+            value={remunerationMax}
+            onChangeText={setRemunerationMax}
+            keyboardType="decimal-pad"
+            placeholder="e.g. 18"
+          />
+        </View>
+      </View>
+      {remunerationGuide && (
+        <Text style={styles.remunerationHint}>
+          Suggested for {activeCategory?.name}: ${remunerationGuide.min}–${remunerationGuide.max}/hr
+        </Text>
+      )}
+
+      <DayPicker label="Required Time Slots" selected={requiredSlots} onChange={setRequiredSlots} />
+
+      <Text style={styles.sectionTitle}>Job Photos (up to {MAX_PHOTOS})</Text>
+      <View style={styles.photoRow}>
+        {Array.from({ length: MAX_PHOTOS }).map((_, i) => {
+          const url = photos[i];
+          return (
+            <View key={i} style={styles.photoSlot}>
+              {url ? (
+                <>
+                  <Image source={{ uri: url }} style={styles.photoThumb} resizeMode="cover" />
+                  <TouchableOpacity style={styles.photoRemove} onPress={() => handleRemovePhoto(i)}>
+                    <Text style={styles.photoRemoveText}>✕</Text>
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <TouchableOpacity style={styles.photoAdd} onPress={() => handleAddPhoto(i)}>
+                  <Text style={styles.photoAddText}>+ Add Photo</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          );
+        })}
+      </View>
 
       <Text style={styles.sectionTitle}>Required Skills</Text>
       <SkillPicker
@@ -112,6 +197,7 @@ export default function CreateJobScreen() {
         selected={requiredSkills}
         onChange={setRequiredSkills}
         minProficiencyMode
+        singleCategory
       />
 
       <Button title={saving ? 'Posting...' : 'Post Job'} onPress={handleCreate} disabled={saving} />
@@ -132,4 +218,34 @@ const styles = StyleSheet.create({
     backgroundColor: '#f9f9f9',
   },
   sectionTitle: { fontSize: 18, fontWeight: '700', color: '#1a1a2e', marginBottom: 12, marginTop: 8 },
+  remunerationRow: { flexDirection: 'row', gap: 12 },
+  remunerationField: { flex: 1 },
+  remunerationHint: { fontSize: 13, color: '#4361ee', marginBottom: 12, marginTop: -8 },
+  photoRow: { flexDirection: 'row', gap: 10, marginBottom: 20 },
+  photoSlot: { flex: 1, aspectRatio: 1, borderRadius: 10, overflow: 'hidden', position: 'relative' },
+  photoThumb: { width: '100%', height: '100%' },
+  photoRemove: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: 12,
+    width: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  photoRemoveText: { color: '#fff', fontSize: 12, fontWeight: '700' },
+  photoAdd: {
+    flex: 1,
+    borderWidth: 1.5,
+    borderColor: '#ddd',
+    borderStyle: 'dashed',
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    minHeight: 90,
+    backgroundColor: '#fafafa',
+  },
+  photoAddText: { fontSize: 13, color: '#999' },
 });

@@ -6,8 +6,7 @@ import { Badge } from './ui/Badge';
 interface JobCardProps {
   title: string;
   estate: string;
-  hoursPerWeek: number;
-  days: string[];
+  slots: string[];
   status?: string;
   applicantCount?: number;
   matchScore?: number;
@@ -17,13 +16,14 @@ interface JobCardProps {
 export function JobCard({
   title,
   estate,
-  hoursPerWeek,
-  days,
+  slots,
   status,
   applicantCount,
   matchScore,
   onPress,
 }: JobCardProps) {
+  const hoursPerWeek = slots.length * 3;
+
   return (
     <TouchableOpacity onPress={onPress} disabled={!onPress}>
       <Card>
@@ -36,9 +36,9 @@ export function JobCard({
             </View>
           )}
         </View>
-        <Text style={styles.detail}>{estate} · {hoursPerWeek}h/week</Text>
-        {days.length > 0 && (
-          <Text style={styles.days}>{days.join(', ')}</Text>
+        <Text style={styles.detail}>{estate} · {hoursPerWeek} hours required/week</Text>
+        {slots.length > 0 && (
+          <Text style={styles.slots}>{slots.join(', ')}</Text>
         )}
         {applicantCount !== undefined && applicantCount > 0 && (
           <Text style={styles.applicants}>
@@ -54,7 +54,7 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
   title: { fontSize: 17, fontWeight: '700', color: '#1a1a2e', flex: 1 },
   detail: { fontSize: 14, color: '#666', marginBottom: 4 },
-  days: { fontSize: 13, color: '#999' },
+  slots: { fontSize: 13, color: '#999' },
   applicants: { fontSize: 13, color: '#4361ee', fontWeight: '600', marginTop: 6 },
   scoreBadge: {
     backgroundColor: '#4361ee',

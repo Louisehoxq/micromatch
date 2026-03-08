@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../providers/AuthProvider';
-import { Profile, JobberProfile, JobberSkill } from '../types/database';
+import { Profile, JobberProfile, JobberSkill, CreatorProfile } from '../types/database';
 import { SelectedSkill } from '../components/SkillPicker';
 
 export function useProfile() {
@@ -9,6 +9,7 @@ export function useProfile() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [jobberProfile, setJobberProfile] = useState<JobberProfile | null>(null);
   const [jobberSkills, setJobberSkills] = useState<JobberSkill[]>([]);
+  const [creatorProfile, setCreatorProfile] = useState<CreatorProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchProfile = useCallback(async () => {
@@ -31,6 +32,15 @@ export function useProfile() {
       setJobberSkills(jsRes.data ?? []);
     }
 
+    if (prof?.role === 'creator') {
+      const { data: cpData } = await supabase
+        .from('creator_profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+      setCreatorProfile(cpData);
+    }
+
     setLoading(false);
   }, [user]);
 
@@ -46,10 +56,21 @@ export function useProfile() {
   }
 
   async function updateJobberProfile(
-    updates: Partial<Pick<JobberProfile, 'date_of_birth' | 'bio' | 'hours_per_week' | 'available_days'>>
+    updates: Partial<Pick<JobberProfile, 'date_of_birth' | 'bio' | 'available_slots' | 'photo_id_url'>>
   ) {
     if (!user) return;
     const { error } = await supabase.from('jobber_profiles').update(updates).eq('id', user.id);
+    if (error) throw error;
+    await fetchProfile();
+  }
+
+  async function updateCreatorProfile(
+    updates: Partial<Pick<CreatorProfile, 'bio' | 'contact_number' | 'avatar_url'>>
+  ) {
+    if (!user) return;
+    const { error } = await supabase
+      .from('creator_profiles')
+      .upsert({ id: user.id, ...updates });
     if (error) throw error;
     await fetchProfile();
   }
@@ -74,9 +95,11 @@ export function useProfile() {
     profile,
     jobberProfile,
     jobberSkills,
+    creatorProfile,
     loading,
     updateProfile,
     updateJobberProfile,
+    updateCreatorProfile,
     saveJobberSkills,
     refresh: fetchProfile,
   };
