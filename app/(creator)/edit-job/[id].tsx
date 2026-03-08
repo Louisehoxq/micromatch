@@ -1,0 +1,285 @@
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  ScrollView,
+  StyleSheet,
+  ActivityIndicator,
+  TouchableOpacity,
+  Image,
+} from 'react-native';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useJobs } from '../../../src/hooks/useJobs';
+import { useSkills } from '../../../src/hooks/useSkills';
+import { useImageUpload } from '../../../src/hooks/useImageUpload';
+import { useAuth } from '../../../src/providers/AuthProvider';
+import { supabase } from '../../../src/lib/supabase';
+import { Input } from '../../../src/components/ui/Input';
+import { Button } from '../../../src/components/ui/Button';
+import { DayPicker } from '../../../src/components/DayPicker';
+import { SkillPicker, SelectedSkill } from '../../../src/components/SkillPicker';
+import { ESTATES } from '../../../src/lib/estates';
+import { REMUNERATION_GUIDE } from '../../../src/lib/remunerationGuide';
+import { TimeSlot } from '../../../src/types/database';
+import { Picker } from '@react-native-picker/picker';
+
+const MAX_PHOTOS = 3;
+
+export default function EditJobScreen() {
+  const router = useRouter();
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const { user } = useAuth();
+  const { updateJob } = useJobs();
+  const { categories, skills, loading: skillsLoading } = useSkills();
+  const { pickAndUpload } = useImageUpload();
+
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [estate, setEstate] = useState('');
+  const [durationWeeks, setDurationWeeks] = useState('');
+  const [requiredSlots, setRequiredSlots] = useState<TimeSlot[]>([]);
+  const [requiredSkills, setRequiredSkills] = useState<SelectedSkill[]>([]);
+  const [remunerationMin, setRemunerationMin] = useState('');
+  const [remunerationMax, setRemunerationMax] = useState('');
+  const [photos, setPhotos] = useState<string[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [dataLoading, setDataLoading] = useState(true);
+
+  // Detect active category from selected skills for remuneration guidance
+  const activeCategoryId: string | null = (() => {
+    if (requiredSkills.length === 0) return null;
+    const firstSkill = skills.find(sk => sk.id === requiredSkills[0].skill_id);
+    return firstSkill?.category_id ?? null;
+  })();
+  const activeCategory = activeCategoryId ? categories.find(c => c.id === activeCategoryId) : null;
+  const remunerationGuide = activeCategory ? REMUNERATION_GUIDE[activeCategory.name] : null;
+
+  useEffect(() => {
+    fetchJobData();
+  }, [id]);
+
+  async function fetchJobData() {
+    setDataLoading(true);
+    const [jobRes, skillsRes, photosRes] = await Promise.all([
+      supabase.from('jobs').select('*').eq('id', id).single(),
+      supabase.from('job_skills').select('*').eq('job_id', id),
+      supabase.from('job_photos').select('*').eq('job_id', id).order('display_order'),
+    ]);
+
+    if (jobRes.data) {
+      const job = jobRes.data;
+      setTitle(job.title);
+      setDescription(job.description ?? '');
+      setEstate(job.estate);
+      setDurationWeeks(job.duration_weeks ? String(job.duration_weeks) : '');
+      setRequiredSlots(job.required_slots ?? []);
+      setRemunerationMin(job.remuneration_per_hour_min ? String(job.remuneration_per_hour_min) : '');
+      setRemunerationMax(job.remuneration_per_hour_max ? String(job.remuneration_per_hour_max) : '');
+    }
+
+    if (skillsRes.data) {
+      setRequiredSkills(skillsRes.data.map((s: any) => ({
+        skill_id: s.skill_id,
+        proficiency: s.min_proficiency,
+      })));
+    }
+
+    if (photosRes.data) {
+      setPhotos(photosRes.data.map((p: any) => p.photo_url));
+    }
+
+    setDataLoading(false);
+  }
+
+  async function handleAddPhoto(index: number) {
+    if (!user) return;
+    const path = `jobs/${user.id}/${Date.now()}_${index}.jpg`;
+    const url = await pickAndUpload('job-photos', path);
+    if (url) {
+      const updated = [...photos];
+      updated[index] = url;
+      setPhotos(updated);
+    }
+  }
+
+  function handleRemovePhoto(index: number) {
+    const updated = [...photos];
+    updated.splice(index, 1);
+    setPhotos(updated);
+  }
+
+  async function handleSave() {
+    if (!title || !estate) {
+      alert('Please fill in title and estate');
+      return;
+    }
+    setSaving(true);
+    try {
+      await updateJob(id, {
+        title,
+        description,
+        estate,
+        requiredSlots,
+        duration_weeks: durationWeeks ? parseInt(durationWeeks) : null,
+        skills: requiredSkills,
+        remuneration_per_hour_min: remunerationMin ? parseFloat(remunerationMin) : null,
+        remuneration_per_hour_max: remunerationMax ? parseFloat(remunerationMax) : null,
+        photos,
+      });
+      alert('Job updated!');
+      router.back();
+    } catch (error: any) {
+      alert('Error: ' + error.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (dataLoading || skillsLoading) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator size="large" color="#4361ee" />
+      </View>
+    );
+  }
+
+  return (
+    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <Input label="Job Title" value={title} onChangeText={setTitle} />
+      <Input
+        label="Description"
+        value={description}
+        onChangeText={setDescription}
+        multiline
+        numberOfLines={4}
+        style={{ minHeight: 100, textAlignVertical: 'top' }}
+      />
+
+      <Text style={styles.label}>Estate</Text>
+      <View style={styles.pickerContainer}>
+        <Picker selectedValue={estate} onValueChange={setEstate}>
+          <Picker.Item label="Select estate..." value="" />
+          {ESTATES.map(e => (
+            <Picker.Item key={e} label={e} value={e} />
+          ))}
+        </Picker>
+      </View>
+
+      <Input
+        label="Duration (weeks, optional)"
+        value={durationWeeks}
+        onChangeText={setDurationWeeks}
+        keyboardType="numeric"
+        placeholder="e.g. 4"
+      />
+
+      <View style={styles.remunerationRow}>
+        <View style={styles.remunerationField}>
+          <Input
+            label="Min $/hr"
+            value={remunerationMin}
+            onChangeText={setRemunerationMin}
+            keyboardType="decimal-pad"
+            placeholder="e.g. 10"
+          />
+        </View>
+        <View style={styles.remunerationField}>
+          <Input
+            label="Max $/hr"
+            value={remunerationMax}
+            onChangeText={setRemunerationMax}
+            keyboardType="decimal-pad"
+            placeholder="e.g. 18"
+          />
+        </View>
+      </View>
+      {remunerationGuide && (
+        <Text style={styles.remunerationHint}>
+          Suggested for {activeCategory?.name}: ${remunerationGuide.min}–${remunerationGuide.max}/hr
+        </Text>
+      )}
+
+      <DayPicker label="Required Time Slots" selected={requiredSlots} onChange={setRequiredSlots} />
+
+      <Text style={styles.sectionTitle}>Job Photos (up to {MAX_PHOTOS})</Text>
+      <View style={styles.photoRow}>
+        {Array.from({ length: MAX_PHOTOS }).map((_, i) => {
+          const url = photos[i];
+          return (
+            <View key={i} style={styles.photoSlot}>
+              {url ? (
+                <>
+                  <Image source={{ uri: url }} style={styles.photoThumb} resizeMode="cover" />
+                  <TouchableOpacity style={styles.photoRemove} onPress={() => handleRemovePhoto(i)}>
+                    <Text style={styles.photoRemoveText}>✕</Text>
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <TouchableOpacity style={styles.photoAdd} onPress={() => handleAddPhoto(i)}>
+                  <Text style={styles.photoAddText}>+ Add Photo</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          );
+        })}
+      </View>
+
+      <Text style={styles.sectionTitle}>Required Skills</Text>
+      <SkillPicker
+        categories={categories}
+        skills={skills}
+        selected={requiredSkills}
+        onChange={setRequiredSkills}
+        minProficiencyMode
+        singleCategory
+      />
+
+      <Button title={saving ? 'Saving...' : 'Save Changes'} onPress={handleSave} disabled={saving} />
+    </ScrollView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#fff' },
+  content: { padding: 20, paddingBottom: 40 },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  label: { fontSize: 14, fontWeight: '600', color: '#333', marginBottom: 6 },
+  pickerContainer: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 12,
+    marginBottom: 16,
+    backgroundColor: '#f9f9f9',
+  },
+  sectionTitle: { fontSize: 18, fontWeight: '700', color: '#1a1a2e', marginBottom: 12, marginTop: 8 },
+  remunerationRow: { flexDirection: 'row', gap: 12 },
+  remunerationField: { flex: 1 },
+  remunerationHint: { fontSize: 13, color: '#4361ee', marginBottom: 12, marginTop: -8 },
+  photoRow: { flexDirection: 'row', gap: 10, marginBottom: 20 },
+  photoSlot: { flex: 1, aspectRatio: 1, borderRadius: 10, overflow: 'hidden', position: 'relative' },
+  photoThumb: { width: '100%', height: '100%' },
+  photoRemove: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: 12,
+    width: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  photoRemoveText: { color: '#fff', fontSize: 12, fontWeight: '700' },
+  photoAdd: {
+    flex: 1,
+    borderWidth: 1.5,
+    borderColor: '#ddd',
+    borderStyle: 'dashed',
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    minHeight: 90,
+    backgroundColor: '#fafafa',
+  },
+  photoAddText: { fontSize: 13, color: '#999' },
+});

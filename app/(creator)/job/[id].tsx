@@ -7,7 +7,7 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { supabase } from '../../../src/lib/supabase';
 import { useCreatorApplications } from '../../../src/hooks/useCreatorApplications';
 import { Job } from '../../../src/types/database';
@@ -19,6 +19,7 @@ import { Avatar } from '../../../src/components/ui/Avatar';
 
 export default function JobDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const router = useRouter();
   const [job, setJob] = useState<Job | null>(null);
   const [jobLoading, setJobLoading] = useState(true);
   const { applicants, loading, stats, updateStatus, refresh } = useCreatorApplications(id);
@@ -70,7 +71,15 @@ export default function JobDetailScreen() {
       refreshing={loading}
       ListHeaderComponent={
         <View style={styles.header}>
-          <Text style={styles.title}>{job.title}</Text>
+          <View style={styles.titleRow}>
+            <Text style={styles.title}>{job.title}</Text>
+            <Button
+              title="Edit"
+              variant="secondary"
+              onPress={() => router.push(`/(creator)/edit-job/${id}`)}
+              style={{ paddingHorizontal: 16, paddingVertical: 8 }}
+            />
+          </View>
           <Badge label={job.status} />
           <Text style={styles.detail}>
             {job.estate} · {hoursPerWeek} hours required/week
@@ -137,7 +146,8 @@ const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   content: { padding: 16 },
   header: { marginBottom: 16 },
-  title: { fontSize: 24, fontWeight: '700', color: '#1a1a2e', marginBottom: 8 },
+  titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
+  title: { fontSize: 24, fontWeight: '700', color: '#1a1a2e', flex: 1 },
   detail: { fontSize: 15, color: '#666', marginTop: 8 },
   remuneration: { fontSize: 15, color: '#27ae60', fontWeight: '600', marginTop: 4 },
   desc: { fontSize: 15, color: '#444', marginTop: 8, lineHeight: 22 },

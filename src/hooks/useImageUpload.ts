@@ -19,27 +19,29 @@ export function useImageUpload() {
     if (result.canceled || !result.assets[0]) return null;
 
     const asset = result.assets[0];
-    const uri = asset.uri;
-    const ext = uri.split('.').pop() ?? 'jpg';
+    const ext = asset.uri.split('.').pop()?.toLowerCase() ?? 'jpg';
+    const mimeType = ext === 'jpg' ? 'image/jpeg' : `image/${ext}`;
 
-    const response = await fetch(uri);
-    const blob = await response.blob();
-    const arrayBuffer = await blob.arrayBuffer();
+    try {
+      const response = await fetch(asset.uri);
+      const blob = await response.blob();
 
-    const { error } = await supabase.storage
-      .from(bucket)
-      .upload(path, arrayBuffer, {
-        contentType: `image/${ext}`,
-        upsert: true,
-      });
+      const { error } = await supabase.storage
+        .from(bucket)
+        .upload(path, blob, { contentType: mimeType, upsert: true });
 
-    if (error) {
-      Alert.alert('Upload failed', error.message);
+      if (error) {
+        Alert.alert('Upload failed', error.message);
+        return null;
+      }
+
+      const { data } = supabase.storage.from(bucket).getPublicUrl(path);
+      // Append timestamp to bust CDN cache on re-uploads
+      return `${data.publicUrl}?t=${Date.now()}`;
+    } catch (err: any) {
+      Alert.alert('Upload failed', err.message ?? 'Unknown error');
       return null;
     }
-
-    const { data } = supabase.storage.from(bucket).getPublicUrl(path);
-    return data.publicUrl;
   }
 
   return { pickAndUpload };
