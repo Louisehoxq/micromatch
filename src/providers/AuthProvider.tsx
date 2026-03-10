@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { Platform } from 'react-native';
 import { Session, User } from '@supabase/supabase-js';
+import * as WebBrowser from 'expo-web-browser';
 import { supabase } from '../lib/supabase';
 import { UserRole } from '../types/database';
 
@@ -10,7 +12,11 @@ interface AuthContextType {
   loading: boolean;
   signUp: (email: string, password: string, role: UserRole, fullName: string) => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
+  signInWithPhone: (phone: string) => Promise<void>;
+  verifyOtp: (phone: string, token: string) => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
+  refreshRole: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -35,6 +41,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       if (session?.user) {
+        setLoading(true);
         fetchRole(session.user.id);
       } else {
         setRole(null);
@@ -71,6 +78,49 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (error) throw error;
   }
 
+  async function signInWithPhone(phone: string) {
+    const { error } = await supabase.auth.signInWithOtp({ phone });
+    if (error) throw error;
+  }
+
+  async function verifyOtp(phone: string, token: string) {
+    const { error } = await supabase.auth.verifyOtp({ phone, token, type: 'sms' });
+    if (error) throw error;
+  }
+
+  async function signInWithGoogle() {
+    if (Platform.OS === 'web') {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: typeof window !== 'undefined' ? window.location.origin : undefined },
+      });
+      if (error) throw error;
+    } else {
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { skipBrowserRedirect: true, redirectTo: 'micromatch://' },
+      });
+      if (error) throw error;
+      if (data?.url) {
+        const result = await WebBrowser.openAuthSessionAsync(data.url, 'micromatch://');
+        if (result.type === 'success') {
+          const url = new URL(result.url);
+          const accessToken = url.searchParams.get('access_token');
+          const refreshToken = url.searchParams.get('refresh_token');
+          if (accessToken && refreshToken) {
+            const { error: sessionError } = await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
+            if (sessionError) throw sessionError;
+          }
+        }
+      }
+    }
+  }
+
+  async function refreshRole() {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.user) await fetchRole(session.user.id);
+  }
+
   async function signOut() {
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
@@ -85,7 +135,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         loading,
         signUp,
         signIn,
+        signInWithPhone,
+        verifyOtp,
+        signInWithGoogle,
         signOut,
+        refreshRole,
       }}
     >
       {children}

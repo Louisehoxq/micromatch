@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   Image,
+  Alert,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useJobs } from '../../../src/hooks/useJobs';
@@ -29,7 +30,7 @@ export default function EditJobScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuth();
-  const { updateJob } = useJobs();
+  const { updateJob, deleteJob } = useJobs();
   const { categories, skills, loading: skillsLoading } = useSkills();
   const { pickAndUpload } = useImageUpload();
 
@@ -43,6 +44,7 @@ export default function EditJobScreen() {
   const [remunerationMax, setRemunerationMax] = useState('');
   const [photos, setPhotos] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [dataLoading, setDataLoading] = useState(true);
 
   // Detect active category from selected skills for remuneration guidance
@@ -234,7 +236,37 @@ export default function EditJobScreen() {
         singleCategory
       />
 
-      <Button title={saving ? 'Saving...' : 'Save Changes'} onPress={handleSave} disabled={saving} />
+      <Button title={saving ? 'Saving...' : 'Save Changes'} onPress={handleSave} disabled={saving || deleting} />
+
+      <TouchableOpacity
+        style={[styles.deleteBtn, (saving || deleting) && styles.deleteBtnDisabled]}
+        onPress={() => {
+          Alert.alert(
+            'Delete Job',
+            'This will permanently delete the job and all its applications. This cannot be undone.',
+            [
+              { text: 'Cancel', style: 'cancel' },
+              {
+                text: 'Delete',
+                style: 'destructive',
+                onPress: async () => {
+                  setDeleting(true);
+                  try {
+                    await deleteJob(id);
+                    router.back();
+                  } catch (error: any) {
+                    Alert.alert('Error', error.message);
+                    setDeleting(false);
+                  }
+                },
+              },
+            ]
+          );
+        }}
+        disabled={saving || deleting}
+      >
+        <Text style={styles.deleteBtnText}>{deleting ? 'Deleting...' : 'Delete This Job'}</Text>
+      </TouchableOpacity>
     </ScrollView>
   );
 }
@@ -282,4 +314,15 @@ const styles = StyleSheet.create({
     backgroundColor: '#fafafa',
   },
   photoAddText: { fontSize: 13, color: '#999' },
+  deleteBtn: {
+    marginTop: 12,
+    marginBottom: 12,
+    paddingVertical: 14,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: '#e74c3c',
+    alignItems: 'center',
+  },
+  deleteBtnDisabled: { opacity: 0.4 },
+  deleteBtnText: { fontSize: 15, color: '#e74c3c', fontWeight: '600' },
 });

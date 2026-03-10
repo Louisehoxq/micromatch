@@ -5,38 +5,38 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
 } from 'react-native';
-import { Link } from 'expo-router';
+import { Picker } from '@react-native-picker/picker';
+import { supabase } from '../../src/lib/supabase';
 import { useAuth } from '../../src/providers/AuthProvider';
 import { UserRole } from '../../src/types/database';
+import { ESTATES } from '../../src/lib/estates';
 
-export default function SignupScreen() {
-  const { signUp } = useAuth();
+export default function SelectRoleScreen() {
+  const { user, refreshRole } = useAuth();
   const [fullName, setFullName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [role, setRole] = useState<UserRole>('jobber');
+  const [estate, setEstate] = useState(ESTATES[0]);
   const [loading, setLoading] = useState(false);
 
-  async function handleSignup() {
-    if (!fullName || !email || !password) {
-      alert('Error: ' + 'Please fill in all fields');
-      return;
-    }
-    if (password.length < 6) {
-      alert('Error: ' + 'Password must be at least 6 characters');
-      return;
-    }
+  async function handleContinue() {
+    if (!fullName.trim()) { alert('Please enter your full name'); return; }
+    if (!user) return;
     setLoading(true);
     try {
-      await signUp(email, password, role, fullName);
-      alert( 'Account created! You can now sign in.');
-    } catch (error: any) {
-      alert('Signup Failed: ' + error.message);
+      const { error } = await supabase.from('profiles').upsert({
+        id: user.id,
+        full_name: fullName.trim(),
+        role,
+        estate,
+      });
+      if (error) throw error;
+      await refreshRole();
+    } catch (e: any) {
+      alert('Error: ' + e.message);
     } finally {
       setLoading(false);
     }
@@ -48,30 +48,14 @@ export default function SignupScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <ScrollView contentContainerStyle={styles.inner} keyboardShouldPersistTaps="handled">
-        <Text style={styles.title}>Create Account</Text>
+        <Text style={styles.title}>Complete Your Profile</Text>
+        <Text style={styles.subtitle}>Just a few details to get started</Text>
 
         <TextInput
           style={styles.input}
           placeholder={role === 'creator' ? 'Organisation Name' : 'Full Name'}
           value={fullName}
           onChangeText={setFullName}
-          placeholderTextColor="#999"
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="Email"
-          value={email}
-          onChangeText={setEmail}
-          autoCapitalize="none"
-          keyboardType="email-address"
-          placeholderTextColor="#999"
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="Password"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
           placeholderTextColor="#999"
         />
 
@@ -95,19 +79,22 @@ export default function SignupScreen() {
           </TouchableOpacity>
         </View>
 
+        <Text style={styles.label}>Estate:</Text>
+        <View style={styles.pickerWrapper}>
+          <Picker selectedValue={estate} onValueChange={setEstate}>
+            {ESTATES.map(e => (
+              <Picker.Item key={e} label={e} value={e} />
+            ))}
+          </Picker>
+        </View>
+
         <TouchableOpacity
           style={[styles.button, loading && styles.buttonDisabled]}
-          onPress={handleSignup}
+          onPress={handleContinue}
           disabled={loading}
         >
-          <Text style={styles.buttonText}>{loading ? 'Creating...' : 'Create Account'}</Text>
+          <Text style={styles.buttonText}>{loading ? 'Saving...' : 'Continue'}</Text>
         </TouchableOpacity>
-
-        <Link href="/(auth)/login" asChild>
-          <TouchableOpacity style={styles.linkButton}>
-            <Text style={styles.linkText}>Already have an account? Sign In</Text>
-          </TouchableOpacity>
-        </Link>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -116,7 +103,8 @@ export default function SignupScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff' },
   inner: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: 24, paddingVertical: 40 },
-  title: { fontSize: 28, fontWeight: '700', textAlign: 'center', color: '#1a1a2e', marginBottom: 32 },
+  title: { fontSize: 28, fontWeight: '700', textAlign: 'center', color: '#1a1a2e', marginBottom: 8 },
+  subtitle: { fontSize: 16, textAlign: 'center', color: '#666', marginBottom: 32 },
   input: {
     borderWidth: 1,
     borderColor: '#ddd',
@@ -139,6 +127,14 @@ const styles = StyleSheet.create({
   roleActive: { borderColor: '#4361ee', backgroundColor: '#eef0ff' },
   roleText: { fontSize: 14, fontWeight: '600', color: '#666' },
   roleTextActive: { color: '#4361ee' },
+  pickerWrapper: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 12,
+    marginBottom: 24,
+    backgroundColor: '#f9f9f9',
+    overflow: 'hidden',
+  },
   button: {
     backgroundColor: '#4361ee',
     borderRadius: 12,
@@ -147,6 +143,4 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: { opacity: 0.6 },
   buttonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
-  linkButton: { marginTop: 20, alignItems: 'center' },
-  linkText: { color: '#4361ee', fontSize: 14 },
 });

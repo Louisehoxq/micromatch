@@ -14,8 +14,9 @@ function AuthGate() {
     const inAuthGroup = segments[0] === '(auth)';
 
     if (!session) {
-      // Not signed in — go to login
       if (!inAuthGroup) router.replace('/(auth)/login');
+    } else if (!role) {
+      if (segments[1] !== 'select-role') router.replace('/(auth)/select-role');
     } else if (role === 'jobber') {
       if (segments[0] !== '(jobber)') router.replace('/(jobber)/feed');
     } else if (role === 'creator') {

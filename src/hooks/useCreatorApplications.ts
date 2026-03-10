@@ -1,6 +1,20 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
-import { ApplicationWithJobber, ApplicationStatus } from '../types/database';
+
+export interface ApplicantDetail {
+  id: string;
+  job_id: string;
+  jobber_id: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+  full_name: string;
+  estate: string;
+  avatar_url: string | null;
+  bio: string;
+  available_slots: string[];
+  skills: { name: string; proficiency: number }[];
+}
 
 interface Stats {
   total: number;
@@ -9,7 +23,7 @@ interface Stats {
 }
 
 export function useCreatorApplications(jobId: string) {
-  const [applicants, setApplicants] = useState<ApplicationWithJobber[]>([]);
+  const [applicants, setApplicants] = useState<ApplicantDetail[]>([]);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<Stats>({ total: 0, reviewed: 0, accepted: 0 });
 
@@ -24,15 +38,54 @@ export function useCreatorApplications(jobId: string) {
       .eq('job_id', jobId)
       .eq('status', 'pending');
 
-    const { data } = await supabase
+    // Fetch applications with all jobber details in one query
+    const { data: appData, error: appError } = await supabase
       .from('applications')
-      .select('*, jobber:profiles!applications_jobber_id_fkey(full_name, estate, avatar_url)')
+      .select(`
+        id, job_id, jobber_id, status, created_at, updated_at,
+        profile:profiles!applications_jobber_id_fkey(
+          full_name, estate, avatar_url,
+          jobber_profiles(bio, available_slots),
+          jobber_skills(proficiency, skill:skills(name))
+        )
+      `)
       .eq('job_id', jobId)
       .order('created_at', { ascending: false });
 
-    const list = (data ?? []) as ApplicationWithJobber[];
-    setApplicants(list);
+    if (appError) {
+      console.error('useCreatorApplications fetch error:', appError);
+      setLoading(false);
+      return;
+    }
 
+    const list: ApplicantDetail[] = (appData ?? []).map((row: any) => {
+      const profile = row.profile ?? {};
+      const jp = Array.isArray(profile.jobber_profiles)
+        ? profile.jobber_profiles[0]
+        : profile.jobber_profiles;
+
+      const skills = (profile.jobber_skills ?? []).map((s: any) => ({
+        name: s.skill?.name ?? '',
+        proficiency: s.proficiency,
+      }));
+
+      return {
+        id: row.id,
+        job_id: row.job_id,
+        jobber_id: row.jobber_id,
+        status: row.status,
+        created_at: row.created_at,
+        updated_at: row.updated_at,
+        full_name: profile.full_name ?? '',
+        estate: profile.estate ?? '',
+        avatar_url: profile.avatar_url ?? null,
+        bio: jp?.bio ?? '',
+        available_slots: jp?.available_slots ?? [],
+        skills,
+      };
+    });
+
+    setApplicants(list);
     setStats({
       total: list.length,
       reviewed: list.filter(a => a.status !== 'pending').length,
