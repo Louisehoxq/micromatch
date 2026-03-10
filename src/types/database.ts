@@ -10,8 +10,13 @@ export const APPLICATION_STATUS_LABELS: Record<ApplicationStatus, string> = {
   pending: 'Submitted',
   under_review: 'Under Review',
   accepted: 'Committed',
-  withdrawn_by_creator: 'Withdrawn by Creator',
+  withdrawn_by_creator: 'Rejected by Creator',
   withdrawn_by_jobber: 'Withdrawn by You',
+};
+
+export const JOBBER_STATUS_LABELS: Record<ApplicationStatus, string> = {
+  ...APPLICATION_STATUS_LABELS,
+  withdrawn_by_creator: 'Rejected',
 };
 
 export interface Profile {
@@ -137,4 +142,10 @@ export interface ApplicationWithJob extends Application {
 
 export interface ApplicationWithJobber extends Application {
   jobber: Pick<Profile, 'full_name' | 'estate' | 'avatar_url'>;
+}
+
+export interface ApplicationWithJobberDetail extends Application {
+  jobber: Pick<Profile, 'full_name' | 'estate' | 'avatar_url'>;
+  jobberProfile: { bio: string; available_slots: TimeSlot[] } | null;
+  jobberSkills: { name: string; proficiency: number }[];
 }

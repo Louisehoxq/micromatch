@@ -11,7 +11,7 @@ import { useApplications } from '../../src/hooks/useApplications';
 import { Card } from '../../src/components/ui/Card';
 import { Badge } from '../../src/components/ui/Badge';
 import { Button } from '../../src/components/ui/Button';
-import { APPLICATION_STATUS_LABELS } from '../../src/types/database';
+import { JOBBER_STATUS_LABELS } from '../../src/types/database';
 
 export default function ApplicationsScreen() {
   const { applications, loading, refresh, withdrawApplication } = useApplications();
@@ -64,7 +64,7 @@ export default function ApplicationsScreen() {
       renderItem={({ item }) => {
         const job = item.job as any;
         const hoursPerWeek = (job?.required_slots?.length ?? 0) * 3;
-        const statusLabel = APPLICATION_STATUS_LABELS[item.status] ?? item.status;
+        const statusLabel = JOBBER_STATUS_LABELS[item.status] ?? item.status;
         const canWithdraw = item.status === 'pending' || item.status === 'under_review';
 
         return (

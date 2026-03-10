@@ -15,7 +15,7 @@ import { Badge } from '../../src/components/ui/Badge';
 import { Card } from '../../src/components/ui/Card';
 import { Button } from '../../src/components/ui/Button';
 import { Avatar } from '../../src/components/ui/Avatar';
-import { APPLICATION_STATUS_LABELS, ApplicationStatus } from '../../src/types/database';
+import { JOBBER_STATUS_LABELS, ApplicationStatus } from '../../src/types/database';
 
 export default function JobberDashboard() {
   const router = useRouter();
@@ -90,7 +90,7 @@ export default function JobberDashboard() {
         ) : (
           recent.map(app => {
             const job = app.job as any;
-            const statusLabel = APPLICATION_STATUS_LABELS[app.status as ApplicationStatus] ?? app.status;
+            const statusLabel = JOBBER_STATUS_LABELS[app.status as ApplicationStatus] ?? app.status;
             return (
               <Card key={app.id}>
                 <View style={styles.appRow}>
