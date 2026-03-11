@@ -64,6 +64,10 @@ export default function JobberLayout() {
           tabBarIcon: ({ color, size }) => <Ionicons name="person" size={size} color={color} />,
         }}
       />
+      <Tabs.Screen
+        name="commitment/[id]"
+        options={{ href: null, title: 'Committed Job' }}
+      />
     </Tabs>
   );
 }

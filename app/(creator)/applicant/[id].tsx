@@ -33,6 +33,7 @@ interface ApplicantData {
   bio: string;
   available_slots: string[];
   skills: { name: string; proficiency: number }[];
+  job_title: string;
 }
 
 export default function ApplicantProfileScreen() {
@@ -52,9 +53,12 @@ export default function ApplicantProfileScreen() {
       .from('applications')
       .select(`
         id, status,
-        profile:profiles!applications_jobber_id_fkey(full_name, estate, avatar_url),
-        jobber_profile:jobber_profiles(bio, available_slots),
-        jobber_skills(proficiency, skill:skills(name))
+        job:jobs(title),
+        profile:profiles!applications_jobber_id_fkey(
+          full_name, estate, avatar_url,
+          jobber_profile:jobber_profiles(bio, available_slots),
+          jobber_skills(proficiency, skill:skills(name))
+        )
       `)
       .eq('id', id)
       .single();
@@ -64,17 +68,21 @@ export default function ApplicantProfileScreen() {
       return;
     }
 
-    const jp = Array.isArray(row.jobber_profile) ? row.jobber_profile[0] : row.jobber_profile;
+    const profile = (row.profile as any) ?? {};
+    const jp = Array.isArray(profile.jobber_profile)
+      ? profile.jobber_profile[0]
+      : profile.jobber_profile;
 
     setData({
       applicationId: row.id,
       status: row.status,
-      full_name: (row.profile as any)?.full_name ?? '',
-      estate: (row.profile as any)?.estate ?? '',
-      avatar_url: (row.profile as any)?.avatar_url ?? null,
+      job_title: (row.job as any)?.title ?? '',
+      full_name: profile.full_name ?? '',
+      estate: profile.estate ?? '',
+      avatar_url: profile.avatar_url ?? null,
       bio: jp?.bio ?? '',
       available_slots: jp?.available_slots ?? [],
-      skills: (row.jobber_skills as any[]).map((s: any) => ({
+      skills: (profile.jobber_skills ?? []).map((s: any) => ({
         name: s.skill?.name ?? '',
         proficiency: s.proficiency,
       })),
@@ -82,13 +90,13 @@ export default function ApplicantProfileScreen() {
     setLoading(false);
   }
 
-  async function handleUpdateStatus(status: 'accepted' | 'withdrawn_by_creator') {
-    const label = status === 'accepted' ? 'Accept' : 'Reject';
+  async function handleUpdateStatus(status: 'offer_pending' | 'withdrawn_by_creator') {
+    const label = status === 'offer_pending' ? 'Accept' : 'Reject';
     Alert.alert(label, `Are you sure you want to ${label.toLowerCase()} this applicant?`, [
       { text: 'Cancel', style: 'cancel' },
       {
         text: label,
-        style: status === 'accepted' ? 'default' : 'destructive',
+        style: status === 'offer_pending' ? 'default' : 'destructive',
         onPress: async () => {
           setActing(true);
           const { error } = await supabase
@@ -107,15 +115,38 @@ export default function ApplicantProfileScreen() {
     ]);
   }
 
-  async function handleContact() {
+  async function handleEmail() {
     const { data: email, error } = await supabase.rpc('get_applicant_email', {
       p_application_id: id,
     });
     if (error || !email) {
-      Alert.alert('Contact', 'Could not retrieve contact details.');
+      Alert.alert('Contact', 'Could not retrieve email.');
       return;
     }
-    Linking.openURL(`mailto:${email}`);
+    const url = `mailto:${email}`;
+    const canOpen = await Linking.canOpenURL(url);
+    if (canOpen) {
+      Linking.openURL(url);
+    } else {
+      Alert.alert('Email', email);
+    }
+  }
+
+  async function handleCall() {
+    const { data: phone, error } = await supabase.rpc('get_applicant_phone', {
+      p_application_id: id,
+    });
+    if (error || !phone) {
+      Alert.alert('Contact', 'No phone number on file.');
+      return;
+    }
+    const url = `tel:${phone}`;
+    const canOpen = await Linking.canOpenURL(url);
+    if (canOpen) {
+      Linking.openURL(url);
+    } else {
+      Alert.alert('Phone', phone);
+    }
   }
 
   if (loading) {
@@ -150,6 +181,14 @@ export default function ApplicantProfileScreen() {
           </View>
         </View>
       </View>
+
+      {/* Job */}
+      {!!data.job_title && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Job</Text>
+          <Text style={styles.bio}>{data.job_title}</Text>
+        </View>
+      )}
 
       {/* Bio */}
       {!!data.bio && (
@@ -192,14 +231,19 @@ export default function ApplicantProfileScreen() {
 
       {/* Actions */}
       <View style={styles.actionsSection}>
-        <TouchableOpacity style={styles.contactBtn} onPress={handleContact}>
-          <Text style={styles.contactBtnText}>Contact Applicant</Text>
-        </TouchableOpacity>
+        <View style={styles.contactRow}>
+          <TouchableOpacity style={[styles.contactBtn, { flex: 1 }]} onPress={handleEmail}>
+            <Text style={styles.contactBtnText}>Email</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.contactBtn, styles.callBtn, { flex: 1 }]} onPress={handleCall}>
+            <Text style={[styles.contactBtnText, styles.callBtnText]}>Call</Text>
+          </TouchableOpacity>
+        </View>
         {canAct && (
           <View style={styles.decisionRow}>
             <Button
               title={acting ? '...' : 'Accept'}
-              onPress={() => handleUpdateStatus('accepted')}
+              onPress={() => handleUpdateStatus('offer_pending')}
               disabled={acting}
               style={{ flex: 1 }}
             />
@@ -268,6 +312,7 @@ const styles = StyleSheet.create({
   slotTagText: { fontSize: 13, color: '#27ae60', fontWeight: '500' },
 
   actionsSection: { marginTop: 8, gap: 12 },
+  contactRow: { flexDirection: 'row', gap: 12 },
   contactBtn: {
     borderWidth: 1.5,
     borderColor: '#4361ee',
@@ -275,6 +320,8 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     alignItems: 'center',
   },
+  callBtn: { borderColor: '#27ae60' },
   contactBtnText: { fontSize: 15, color: '#4361ee', fontWeight: '600' },
+  callBtnText: { color: '#27ae60' },
   decisionRow: { flexDirection: 'row', gap: 12 },
 });

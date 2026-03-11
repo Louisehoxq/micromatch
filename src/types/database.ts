@@ -1,5 +1,5 @@
 export type UserRole = 'jobber' | 'creator';
-export type ApplicationStatus = 'pending' | 'under_review' | 'accepted' | 'withdrawn_by_creator' | 'withdrawn_by_jobber';
+export type ApplicationStatus = 'pending' | 'under_review' | 'offer_pending' | 'accepted' | 'withdrawn_by_creator' | 'withdrawn_by_jobber';
 export type JobStatus = 'open' | 'closed' | 'filled';
 
 export type DayOfWeek = 'Mon' | 'Tue' | 'Wed' | 'Thu' | 'Fri' | 'Sat' | 'Sun';
@@ -9,6 +9,7 @@ export type TimeSlot = `${DayOfWeek}_${TimeSlotPeriod}`;
 export const APPLICATION_STATUS_LABELS: Record<ApplicationStatus, string> = {
   pending: 'Submitted',
   under_review: 'Under Review',
+  offer_pending: 'Offer Sent',
   accepted: 'Committed',
   withdrawn_by_creator: 'Rejected by Creator',
   withdrawn_by_jobber: 'Withdrawn by You',
@@ -16,6 +17,7 @@ export const APPLICATION_STATUS_LABELS: Record<ApplicationStatus, string> = {
 
 export const JOBBER_STATUS_LABELS: Record<ApplicationStatus, string> = {
   ...APPLICATION_STATUS_LABELS,
+  offer_pending: 'Offer Received',
   withdrawn_by_creator: 'Rejected',
 };
 
@@ -35,6 +37,7 @@ export interface JobberProfile {
   bio: string;
   available_slots: TimeSlot[];
   photo_id_url: string | null;
+  phone_number: string;
   created_at: string;
   updated_at: string;
 }

@@ -15,6 +15,7 @@ const PRESETS: Record<string, { color: string; bg: string }> = {
   committed: { color: '#27ae60', bg: '#e8f8f0' },
   rejected: { color: '#e63946', bg: '#fde8ea' },
   under_review: { color: '#4361ee', bg: '#eef0ff' },
+  offer_pending: { color: '#b45309', bg: '#fef3c7' },
   withdrawn_by_creator: { color: '#e63946', bg: '#fde8ea' },
   withdrawn_by_jobber: { color: '#888', bg: '#f0f0f0' },
   open: { color: '#4361ee', bg: '#eef0ff' },

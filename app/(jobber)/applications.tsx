@@ -6,7 +6,10 @@ import {
   StyleSheet,
   ActivityIndicator,
   Alert,
+  TouchableOpacity,
 } from 'react-native';
+import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { useApplications } from '../../src/hooks/useApplications';
 import { Card } from '../../src/components/ui/Card';
 import { Badge } from '../../src/components/ui/Badge';
@@ -15,6 +18,7 @@ import { JOBBER_STATUS_LABELS } from '../../src/types/database';
 
 export default function ApplicationsScreen() {
   const { applications, loading, refresh, withdrawApplication } = useApplications();
+  const router = useRouter();
 
   function handleWithdraw(applicationId: string) {
     Alert.alert(
@@ -67,7 +71,9 @@ export default function ApplicationsScreen() {
         const statusLabel = JOBBER_STATUS_LABELS[item.status] ?? item.status;
         const canWithdraw = item.status === 'pending' || item.status === 'under_review';
 
-        return (
+        const isTappable = item.status === 'accepted' || item.status === 'offer_pending';
+
+        const cardContent = (
           <Card>
             <View style={styles.row}>
               <View style={styles.info}>
@@ -76,7 +82,12 @@ export default function ApplicationsScreen() {
                   {job?.estate} · {hoursPerWeek} hours required/week
                 </Text>
               </View>
-              <Badge status={item.status} label={statusLabel} />
+              <View style={styles.badgeRow}>
+                <Badge status={item.status} label={statusLabel} />
+                {isTappable && (
+                  <Ionicons name="chevron-forward" size={18} color="#aaa" style={{ marginLeft: 6 }} />
+                )}
+              </View>
             </View>
             {canWithdraw && (
               <Button
@@ -88,6 +99,19 @@ export default function ApplicationsScreen() {
             )}
           </Card>
         );
+
+        if (isTappable) {
+          return (
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => router.push(`/(jobber)/commitment/${item.id}`)}
+            >
+              {cardContent}
+            </TouchableOpacity>
+          );
+        }
+
+        return cardContent;
       }}
     />
   );
@@ -99,6 +123,7 @@ const styles = StyleSheet.create({
   emptyHint: { fontSize: 14, color: '#999', marginTop: 8 },
   list: { padding: 16 },
   row: { flexDirection: 'row', alignItems: 'center' },
+  badgeRow: { flexDirection: 'row', alignItems: 'center' },
   info: { flex: 1 },
   title: { fontSize: 16, fontWeight: '700', color: '#1a1a2e' },
   detail: { fontSize: 14, color: '#666', marginTop: 4 },
