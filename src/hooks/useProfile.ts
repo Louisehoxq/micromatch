@@ -56,7 +56,7 @@ export function useProfile() {
   }
 
   async function updateJobberProfile(
-    updates: Partial<Pick<JobberProfile, 'date_of_birth' | 'bio' | 'available_slots' | 'photo_id_url'>>
+    updates: Partial<Pick<JobberProfile, 'date_of_birth' | 'bio' | 'available_slots' | 'photo_id_url' | 'phone_number'>>
   ) {
     if (!user) return;
     const { error } = await supabase.from('jobber_profiles').update(updates).eq('id', user.id);

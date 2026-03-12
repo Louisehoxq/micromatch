@@ -6,6 +6,7 @@ import {
   StyleSheet,
   ActivityIndicator,
   Alert,
+  Platform,
   TouchableOpacity,
 } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -20,25 +21,34 @@ export default function ApplicationsScreen() {
   const { applications, loading, refresh, withdrawApplication } = useApplications();
   const router = useRouter();
 
-  function handleWithdraw(applicationId: string) {
-    Alert.alert(
-      'Withdraw Application',
-      'Are you sure you want to withdraw this application?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Withdraw',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await withdrawApplication(applicationId);
-            } catch (error: any) {
-              Alert.alert('Error', error.message);
-            }
+  async function handleWithdraw(applicationId: string) {
+    if (Platform.OS === 'web') {
+      if (!window.confirm('Are you sure you want to withdraw this application?')) return;
+      try {
+        await withdrawApplication(applicationId);
+      } catch (error: any) {
+        window.alert(error.message);
+      }
+    } else {
+      Alert.alert(
+        'Withdraw Application',
+        'Are you sure you want to withdraw this application?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Withdraw',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                await withdrawApplication(applicationId);
+              } catch (error: any) {
+                Alert.alert('Error', error.message);
+              }
+            },
           },
-        },
-      ]
-    );
+        ]
+      );
+    }
   }
 
   if (loading) {
