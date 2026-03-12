@@ -18,7 +18,7 @@ import { Button } from '../../src/components/ui/Button';
 import { DayPicker } from '../../src/components/DayPicker';
 import { SkillPicker, SelectedSkill } from '../../src/components/SkillPicker';
 import { ESTATES } from '../../src/lib/estates';
-import { REMUNERATION_GUIDE } from '../../src/lib/remunerationGuide';
+import { suggestPay } from '../../src/lib/remunerationGuide';
 import { TimeSlot } from '../../src/types/database';
 import { Picker } from '@react-native-picker/picker';
 import { useAuth } from '../../src/providers/AuthProvider';
@@ -54,7 +54,12 @@ export default function CreateJobScreen() {
     ? categories.find(c => c.id === activeCategoryId)
     : null;
 
-  const remunerationGuide = activeCategory ? REMUNERATION_GUIDE[activeCategory.name] : null;
+  const maxProficiency = requiredSkills.length > 0
+    ? Math.max(...requiredSkills.map(s => s.proficiency)) as 1 | 2 | 3
+    : 1;
+  const hasEvening = requiredSlots.some(s => s.endsWith('_evening'));
+  const hasWeekend = requiredSlots.some(s => s.startsWith('Sat_') || s.startsWith('Sun_'));
+  const suggestedPay = suggestPay(activeCategory?.name, maxProficiency, hasEvening, hasWeekend);
 
   async function handleAddPhoto(index: number) {
     if (!user) return;
@@ -139,32 +144,6 @@ export default function CreateJobScreen() {
         placeholder="e.g. 4"
       />
 
-      <View style={styles.remunerationRow}>
-        <View style={styles.remunerationField}>
-          <Input
-            label="Min $/hr"
-            value={remunerationMin}
-            onChangeText={setRemunerationMin}
-            keyboardType="decimal-pad"
-            placeholder="e.g. 10"
-          />
-        </View>
-        <View style={styles.remunerationField}>
-          <Input
-            label="Max $/hr"
-            value={remunerationMax}
-            onChangeText={setRemunerationMax}
-            keyboardType="decimal-pad"
-            placeholder="e.g. 18"
-          />
-        </View>
-      </View>
-      {remunerationGuide && (
-        <Text style={styles.remunerationHint}>
-          Suggested for {activeCategory?.name}: ${remunerationGuide.min}–${remunerationGuide.max}/hr
-        </Text>
-      )}
-
       <DayPicker label="Required Time Slots" selected={requiredSlots} onChange={setRequiredSlots} />
 
       <Text style={styles.sectionTitle}>Job Photos (up to {MAX_PHOTOS})</Text>
@@ -200,6 +179,48 @@ export default function CreateJobScreen() {
         singleCategory
       />
 
+      {suggestedPay && (
+        <View style={styles.suggestionBanner}>
+          <View style={styles.suggestionLeft}>
+            <Text style={styles.suggestionTitle}>Suggested pay</Text>
+            <Text style={styles.suggestionRange}>
+              ${suggestedPay.min} – ${suggestedPay.max}/hr
+            </Text>
+            <Text style={styles.suggestionBreakdown}>{suggestedPay.labels.join(' · ')}</Text>
+          </View>
+          <TouchableOpacity
+            style={styles.useThisBtn}
+            onPress={() => {
+              setRemunerationMin(String(suggestedPay.min));
+              setRemunerationMax(String(suggestedPay.max));
+            }}
+          >
+            <Text style={styles.useThisBtnText}>Use this</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      <View style={styles.remunerationRow}>
+        <View style={styles.remunerationField}>
+          <Input
+            label="Min $/hr"
+            value={remunerationMin}
+            onChangeText={setRemunerationMin}
+            keyboardType="decimal-pad"
+            placeholder="e.g. 10"
+          />
+        </View>
+        <View style={styles.remunerationField}>
+          <Input
+            label="Max $/hr"
+            value={remunerationMax}
+            onChangeText={setRemunerationMax}
+            keyboardType="decimal-pad"
+            placeholder="e.g. 18"
+          />
+        </View>
+      </View>
+
       <Button title={saving ? 'Posting...' : 'Post Job'} onPress={handleCreate} disabled={saving} />
     </ScrollView>
   );
@@ -220,7 +241,21 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 18, fontWeight: '700', color: '#1a1a2e', marginBottom: 12, marginTop: 8 },
   remunerationRow: { flexDirection: 'row', gap: 12 },
   remunerationField: { flex: 1 },
-  remunerationHint: { fontSize: 13, color: '#4361ee', marginBottom: 12, marginTop: -8 },
+  suggestionBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#eef1fd',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 16,
+    marginTop: -8,
+  },
+  suggestionLeft: { flex: 1 },
+  suggestionTitle: { fontSize: 11, color: '#4361ee', fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
+  suggestionRange: { fontSize: 16, fontWeight: '700', color: '#1a1a2e', marginTop: 2 },
+  suggestionBreakdown: { fontSize: 11, color: '#666', marginTop: 2 },
+  useThisBtn: { backgroundColor: '#4361ee', borderRadius: 8, paddingHorizontal: 14, paddingVertical: 8 },
+  useThisBtnText: { color: '#fff', fontSize: 13, fontWeight: '600' },
   photoRow: { flexDirection: 'row', gap: 10, marginBottom: 20 },
   photoSlot: { flex: 1, aspectRatio: 1, borderRadius: 10, overflow: 'hidden', position: 'relative' },
   photoThumb: { width: '100%', height: '100%' },

@@ -45,7 +45,7 @@ export default function JobDetailScreen() {
     setJobLoading(false);
   }
 
-  async function handleUpdateStatus(applicationId: string, status: 'accepted' | 'withdrawn_by_creator') {
+  async function handleUpdateStatus(applicationId: string, status: 'withdrawn_by_creator') {
     try {
       await updateStatus(applicationId, status);
     } catch (error: any) {
@@ -54,14 +54,47 @@ export default function JobDetailScreen() {
   }
 
   async function handleContact(applicationId: string, name: string) {
-    const { data: email, error } = await supabase.rpc('get_applicant_email', {
-      p_application_id: applicationId,
-    });
-    if (error || !email) {
-      Alert.alert('Contact', 'Could not retrieve contact details.');
-      return;
-    }
-    Linking.openURL(`mailto:${email}`);
+    Alert.alert(`Contact ${name}`, 'How would you like to reach out?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Email',
+        onPress: async () => {
+          const { data: email, error } = await supabase.rpc('get_applicant_email', {
+            p_application_id: applicationId,
+          });
+          if (error || !email) {
+            Alert.alert('Contact', 'Could not retrieve email.');
+            return;
+          }
+          const url = `mailto:${email}`;
+          const canOpen = await Linking.canOpenURL(url);
+          if (canOpen) {
+            Linking.openURL(url);
+          } else {
+            Alert.alert('Email', email);
+          }
+        },
+      },
+      {
+        text: 'Call',
+        onPress: async () => {
+          const { data: phone, error } = await supabase.rpc('get_applicant_phone', {
+            p_application_id: applicationId,
+          });
+          if (error || !phone) {
+            Alert.alert('Contact', 'No phone number on file.');
+            return;
+          }
+          const url = `tel:${phone}`;
+          const canOpen = await Linking.canOpenURL(url);
+          if (canOpen) {
+            Linking.openURL(url);
+          } else {
+            Alert.alert('Phone', phone);
+          }
+        },
+      },
+    ]);
   }
 
   if (jobLoading || loading) {
@@ -194,7 +227,7 @@ export default function JobDetailScreen() {
                 <>
                   <Button
                     title="Accept"
-                    onPress={() => handleUpdateStatus(item.id, 'accepted')}
+                    onPress={() => router.push(`/(creator)/send-offer/${item.id}`)}
                     style={styles.actionBtn}
                   />
                   <Button

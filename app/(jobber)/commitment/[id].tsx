@@ -18,9 +18,24 @@ function formatSlot(slot: string): string {
   return `${day} ${short[period] ?? period}`;
 }
 
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleString('en-SG', {
+    day: 'numeric', month: 'short', year: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+  });
+}
+
+interface ContractData {
+  id: string;
+  terms: string;
+  creator_signed_at: string | null;
+  jobber_signed_at: string | null;
+}
+
 interface CommitmentData {
   status: string;
   updated_at: string;
+  contract: ContractData | null;
   job: {
     title: string;
     description: string;
@@ -40,6 +55,7 @@ export default function CommitmentDetailScreen() {
   const [data, setData] = useState<CommitmentData | null>(null);
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState(false);
+  const [agreed, setAgreed] = useState(false);
 
   useEffect(() => {
     fetchCommitment();
@@ -47,21 +63,28 @@ export default function CommitmentDetailScreen() {
 
   async function fetchCommitment() {
     setLoading(true);
-    const { data: row, error } = await supabase
-      .from('applications')
-      .select(`
-        id, status, updated_at,
-        job:jobs(
-          title, description, estate, required_slots, duration_weeks,
-          remuneration_per_hour_min, remuneration_per_hour_max,
-          creator:profiles!jobs_creator_id_fkey(
-            full_name,
-            creator_profile:creator_profiles(contact_number)
+    const [{ data: row, error }, { data: contractRow }] = await Promise.all([
+      supabase
+        .from('applications')
+        .select(`
+          id, status, updated_at,
+          job:jobs(
+            title, description, estate, required_slots, duration_weeks,
+            remuneration_per_hour_min, remuneration_per_hour_max,
+            creator:profiles!jobs_creator_id_fkey(
+              full_name,
+              creator_profile:creator_profiles(contact_number)
+            )
           )
-        )
-      `)
-      .eq('id', id)
-      .single();
+        `)
+        .eq('id', id)
+        .single(),
+      supabase
+        .from('contracts')
+        .select('id, terms, creator_signed_at, jobber_signed_at')
+        .eq('application_id', id)
+        .maybeSingle(),
+    ]);
 
     if (error || !row) {
       setLoading(false);
@@ -77,6 +100,7 @@ export default function CommitmentDetailScreen() {
     setData({
       status: row.status,
       updated_at: row.updated_at,
+      contract: contractRow ?? null,
       job: {
         title: job?.title ?? '',
         description: job?.description ?? '',
@@ -94,6 +118,19 @@ export default function CommitmentDetailScreen() {
 
   async function handleSign() {
     setActing(true);
+
+    if (data?.contract?.id) {
+      const { error: contractErr } = await supabase
+        .from('contracts')
+        .update({ jobber_signed_at: new Date().toISOString() })
+        .eq('id', data.contract.id);
+      if (contractErr) {
+        Alert.alert('Error', contractErr.message);
+        setActing(false);
+        return;
+      }
+    }
+
     const { error } = await supabase
       .from('applications')
       .update({ status: 'accepted' })
@@ -222,25 +259,73 @@ export default function CommitmentDetailScreen() {
         </View>
       )}
 
+      {/* Contract */}
+      {data.contract && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Contract</Text>
+          <View style={styles.contractBox}>
+            <Text style={styles.contractText}>{data.contract.terms}</Text>
+          </View>
+
+          {/* Signature timestamps — shown after both parties have signed */}
+          {!isOfferPending && (
+            <View style={styles.signaturesBox}>
+              {data.contract.creator_signed_at && (
+                <Text style={styles.signatureRow}>
+                  Signed by employer: {formatDate(data.contract.creator_signed_at)}
+                </Text>
+              )}
+              {data.contract.jobber_signed_at && (
+                <Text style={styles.signatureRow}>
+                  Signed by you: {formatDate(data.contract.jobber_signed_at)}
+                </Text>
+              )}
+            </View>
+          )}
+        </View>
+      )}
+
       {/* Signing actions — only shown when offer is pending */}
       {isOfferPending && (
-        <View style={styles.actions}>
-          <TouchableOpacity
-            style={[styles.actionBtn, styles.signBtn, acting && styles.btnDisabled]}
-            onPress={handleSign}
-            disabled={acting}
-          >
-            <Ionicons name="pencil" size={18} color="#fff" style={{ marginRight: 8 }} />
-            <Text style={styles.signBtnText}>{acting ? 'Signing…' : 'Sign & Accept Offer'}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.actionBtn, styles.declineBtn, acting && styles.btnDisabled]}
-            onPress={handleDecline}
-            disabled={acting}
-          >
-            <Text style={styles.declineBtnText}>Decline</Text>
-          </TouchableOpacity>
-        </View>
+        <>
+          {/* Agreement checkbox — required before signing if a contract exists */}
+          {data.contract && (
+            <TouchableOpacity
+              style={styles.checkboxRow}
+              onPress={() => setAgreed(prev => !prev)}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.checkbox, agreed && styles.checkboxChecked]}>
+                {agreed && <Ionicons name="checkmark" size={14} color="#fff" />}
+              </View>
+              <Text style={styles.checkboxLabel}>
+                I have read and agree to the contract terms above
+              </Text>
+            </TouchableOpacity>
+          )}
+
+          <View style={styles.actions}>
+            <TouchableOpacity
+              style={[
+                styles.actionBtn,
+                styles.signBtn,
+                (acting || (!!data.contract && !agreed)) && styles.btnDisabled,
+              ]}
+              onPress={handleSign}
+              disabled={acting || (!!data.contract && !agreed)}
+            >
+              <Ionicons name="pencil" size={18} color="#fff" style={{ marginRight: 8 }} />
+              <Text style={styles.signBtnText}>{acting ? 'Signing…' : 'Sign & Accept Offer'}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.actionBtn, styles.declineBtn, acting && styles.btnDisabled]}
+              onPress={handleDecline}
+              disabled={acting}
+            >
+              <Text style={styles.declineBtnText}>Decline</Text>
+            </TouchableOpacity>
+          </View>
+        </>
       )}
     </ScrollView>
   );
@@ -303,6 +388,42 @@ const styles = StyleSheet.create({
   bodyText: { fontSize: 15, color: '#444', lineHeight: 22 },
   contactText: { fontSize: 15, color: '#4361ee', marginTop: 4 },
 
+  contractBox: {
+    backgroundColor: '#f8f9ff',
+    borderRadius: 10,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#e0e4f5',
+    marginBottom: 12,
+  },
+  contractText: { fontSize: 12, color: '#333', lineHeight: 19, fontFamily: 'monospace' },
+  signaturesBox: {
+    backgroundColor: '#f0fdf4',
+    borderRadius: 8,
+    padding: 12,
+    gap: 4,
+  },
+  signatureRow: { fontSize: 12, color: '#166534' },
+  checkboxRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    marginBottom: 16,
+    paddingHorizontal: 2,
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: '#4361ee',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 1,
+    flexShrink: 0,
+  },
+  checkboxChecked: { backgroundColor: '#4361ee', borderColor: '#4361ee' },
+  checkboxLabel: { flex: 1, fontSize: 14, color: '#333', lineHeight: 20 },
   actions: { gap: 12, marginTop: 8 },
   actionBtn: {
     borderRadius: 14,

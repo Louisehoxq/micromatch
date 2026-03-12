@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import { useJobs } from '../../src/hooks/useJobs';
 import { Card } from '../../src/components/ui/Card';
 import { Badge } from '../../src/components/ui/Badge';
@@ -15,6 +16,8 @@ import { Button } from '../../src/components/ui/Button';
 export default function MyJobsScreen() {
   const { jobs, loading, refresh } = useJobs();
   const router = useRouter();
+
+  useFocusEffect(useCallback(() => { refresh(); }, [refresh]));
 
   if (loading) {
     return (

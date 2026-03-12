@@ -21,6 +21,12 @@ export const JOBBER_STATUS_LABELS: Record<ApplicationStatus, string> = {
   withdrawn_by_creator: 'Rejected',
 };
 
+export const CREATOR_STATUS_LABELS: Record<ApplicationStatus, string> = {
+  ...APPLICATION_STATUS_LABELS,
+  withdrawn_by_jobber: 'Withdrawn by Jobber',
+  withdrawn_by_creator: 'Withdrawn by You',
+};
+
 export interface Profile {
   id: string;
   role: UserRole | null;

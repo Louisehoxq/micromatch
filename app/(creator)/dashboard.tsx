@@ -16,7 +16,7 @@ import { Badge } from '../../src/components/ui/Badge';
 import { Card } from '../../src/components/ui/Card';
 import { Button } from '../../src/components/ui/Button';
 import { Avatar } from '../../src/components/ui/Avatar';
-import { APPLICATION_STATUS_LABELS, ApplicationStatus } from '../../src/types/database';
+import { CREATOR_STATUS_LABELS, ApplicationStatus } from '../../src/types/database';
 
 interface RecentApplicant {
   id: string;
@@ -122,7 +122,7 @@ export default function CreatorDashboard() {
           <Text style={styles.empty}>No applicants yet — post a job to get started</Text>
         ) : (
           recentApplicants.map(app => {
-            const statusLabel = APPLICATION_STATUS_LABELS[app.status as ApplicationStatus] ?? app.status;
+            const statusLabel = CREATOR_STATUS_LABELS[app.status as ApplicationStatus] ?? app.status;
             return (
               <Card key={app.id}>
                 <View style={styles.appRow}>

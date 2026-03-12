@@ -88,6 +88,20 @@ export default function CreatorLayout() {
           title: 'Edit Job',
         }}
       />
+      <Tabs.Screen
+        name="applicant/[id]"
+        options={{
+          href: null,
+          title: 'Applicant Profile',
+        }}
+      />
+      <Tabs.Screen
+        name="send-offer/[id]"
+        options={{
+          href: null,
+          title: 'Send Offer',
+        }}
+      />
     </Tabs>
   );
 }
