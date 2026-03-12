@@ -18,9 +18,8 @@ import { Button } from '../../src/components/ui/Button';
 import { DayPicker } from '../../src/components/DayPicker';
 import { SkillPicker, SelectedSkill } from '../../src/components/SkillPicker';
 import { Avatar } from '../../src/components/ui/Avatar';
-import { ESTATES } from '../../src/lib/estates';
+import { EstatePicker } from '../../src/components/EstatePicker';
 import { TimeSlot } from '../../src/types/database';
-import { Picker } from '@react-native-picker/picker';
 
 export default function JobberProfileScreen() {
   const { signOut, user } = useAuth();
@@ -31,6 +30,7 @@ export default function JobberProfileScreen() {
   const [fullName, setFullName] = useState('');
   const [estate, setEstate] = useState('');
   const [bio, setBio] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
   const [availableSlots, setAvailableSlots] = useState<TimeSlot[]>([]);
   const [selectedSkills, setSelectedSkills] = useState<SelectedSkill[]>([]);
   const [saving, setSaving] = useState(false);
@@ -46,6 +46,7 @@ export default function JobberProfileScreen() {
     }
     if (jobberProfile) {
       setBio(jobberProfile.bio);
+      setPhoneNumber(jobberProfile.phone_number ?? '');
       setAvailableSlots(jobberProfile.available_slots);
       setPhotoIdUrl(jobberProfile.photo_id_url);
     }
@@ -80,6 +81,7 @@ export default function JobberProfileScreen() {
       await updateProfile({ full_name: fullName, estate });
       await updateJobberProfile({
         bio,
+        phone_number: phoneNumber,
         available_slots: availableSlots,
       });
       await saveJobberSkills(selectedSkills);
@@ -114,6 +116,9 @@ export default function JobberProfileScreen() {
         <Text style={styles.viewLabel}>Bio</Text>
         <Text style={styles.viewValue}>{bio || '—'}</Text>
 
+        <Text style={styles.viewLabel}>Contact Number</Text>
+        <Text style={styles.viewValue}>{phoneNumber || '—'}</Text>
+
         <Text style={styles.viewLabel}>Available Slots</Text>
         <Text style={styles.viewValue}>
           {availableSlots.length > 0 ? availableSlots.join(', ') : '—'}
@@ -144,14 +149,7 @@ export default function JobberProfileScreen() {
       <Input label="Full Name" value={fullName} onChangeText={setFullName} />
 
       <Text style={styles.label}>Estate</Text>
-      <View style={styles.pickerContainer}>
-        <Picker selectedValue={estate} onValueChange={setEstate}>
-          <Picker.Item label="Select estate..." value="" />
-          {ESTATES.map(e => (
-            <Picker.Item key={e} label={e} value={e} />
-          ))}
-        </Picker>
-      </View>
+      <EstatePicker value={estate} onChange={setEstate} placeholder="Select estate..." />
 
       <Input
         label="Bio"
@@ -160,6 +158,13 @@ export default function JobberProfileScreen() {
         multiline
         numberOfLines={3}
         style={{ minHeight: 80, textAlignVertical: 'top' }}
+      />
+
+      <Input
+        label="Contact Number"
+        value={phoneNumber}
+        onChangeText={setPhoneNumber}
+        keyboardType="phone-pad"
       />
 
       <DayPicker label="Available Time Slots" selected={availableSlots} onChange={setAvailableSlots} />
@@ -207,13 +212,6 @@ const styles = StyleSheet.create({
   avatarSection: { alignItems: 'center', marginBottom: 20 },
   avatarHint: { fontSize: 12, color: '#4361ee', marginTop: 6, textAlign: 'center' },
   label: { fontSize: 14, fontWeight: '600', color: '#333', marginBottom: 6 },
-  pickerContainer: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 12,
-    marginBottom: 16,
-    backgroundColor: '#f9f9f9',
-  },
   sectionTitle: { fontSize: 18, fontWeight: '700', color: '#1a1a2e', marginBottom: 12, marginTop: 8 },
   photoIdSlot: {
     borderWidth: 1.5,

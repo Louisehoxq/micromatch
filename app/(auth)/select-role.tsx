@@ -9,11 +9,11 @@ import {
   Platform,
   ScrollView,
 } from 'react-native';
-import { Picker } from '@react-native-picker/picker';
 import { supabase } from '../../src/lib/supabase';
 import { useAuth } from '../../src/providers/AuthProvider';
 import { UserRole } from '../../src/types/database';
 import { ESTATES } from '../../src/lib/estates';
+import { EstatePicker } from '../../src/components/EstatePicker';
 
 export default function SelectRoleScreen() {
   const { user, refreshRole } = useAuth();
@@ -80,13 +80,7 @@ export default function SelectRoleScreen() {
         </View>
 
         <Text style={styles.label}>Estate:</Text>
-        <View style={styles.pickerWrapper}>
-          <Picker selectedValue={estate} onValueChange={setEstate}>
-            {ESTATES.map(e => (
-              <Picker.Item key={e} label={e} value={e} />
-            ))}
-          </Picker>
-        </View>
+        <EstatePicker value={estate} onChange={setEstate} style={{ marginBottom: 24 }} />
 
         <TouchableOpacity
           style={[styles.button, loading && styles.buttonDisabled]}
@@ -127,14 +121,6 @@ const styles = StyleSheet.create({
   roleActive: { borderColor: '#4361ee', backgroundColor: '#eef0ff' },
   roleText: { fontSize: 14, fontWeight: '600', color: '#666' },
   roleTextActive: { color: '#4361ee' },
-  pickerWrapper: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 12,
-    marginBottom: 24,
-    backgroundColor: '#f9f9f9',
-    overflow: 'hidden',
-  },
   button: {
     backgroundColor: '#4361ee',
     borderRadius: 12,

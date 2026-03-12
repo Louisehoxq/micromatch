@@ -14,8 +14,7 @@ import { useImageUpload } from '../../src/hooks/useImageUpload';
 import { Input } from '../../src/components/ui/Input';
 import { Button } from '../../src/components/ui/Button';
 import { Avatar } from '../../src/components/ui/Avatar';
-import { ESTATES } from '../../src/lib/estates';
-import { Picker } from '@react-native-picker/picker';
+import { EstatePicker } from '../../src/components/EstatePicker';
 
 export default function CreatorProfileScreen() {
   const { signOut, user } = useAuth();
@@ -83,14 +82,7 @@ export default function CreatorProfileScreen() {
       <Input label="Organisation Name" value={fullName} onChangeText={setFullName} />
 
       <Text style={styles.label}>Estate</Text>
-      <View style={styles.pickerContainer}>
-        <Picker selectedValue={estate} onValueChange={setEstate}>
-          <Picker.Item label="Select estate..." value="" />
-          {ESTATES.map(e => (
-            <Picker.Item key={e} label={e} value={e} />
-          ))}
-        </Picker>
-      </View>
+      <EstatePicker value={estate} onChange={setEstate} placeholder="Select estate..." />
 
       <Input
         label="Bio"
@@ -129,11 +121,4 @@ const styles = StyleSheet.create({
   avatarSection: { alignItems: 'center', marginBottom: 20 },
   avatarHint: { fontSize: 12, color: '#4361ee', marginTop: 6, textAlign: 'center' },
   label: { fontSize: 14, fontWeight: '600', color: '#333', marginBottom: 6 },
-  pickerContainer: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 12,
-    marginBottom: 16,
-    backgroundColor: '#f9f9f9',
-  },
 });

@@ -17,10 +17,9 @@ import { Input } from '../../src/components/ui/Input';
 import { Button } from '../../src/components/ui/Button';
 import { DayPicker } from '../../src/components/DayPicker';
 import { SkillPicker, SelectedSkill } from '../../src/components/SkillPicker';
-import { ESTATES } from '../../src/lib/estates';
 import { suggestPay } from '../../src/lib/remunerationGuide';
+import { EstatePicker } from '../../src/components/EstatePicker';
 import { TimeSlot } from '../../src/types/database';
-import { Picker } from '@react-native-picker/picker';
 import { useAuth } from '../../src/providers/AuthProvider';
 
 const MAX_PHOTOS = 3;
@@ -127,14 +126,7 @@ export default function CreateJobScreen() {
       />
 
       <Text style={styles.label}>Estate</Text>
-      <View style={styles.pickerContainer}>
-        <Picker selectedValue={estate} onValueChange={setEstate}>
-          <Picker.Item label="Select estate..." value="" />
-          {ESTATES.map(e => (
-            <Picker.Item key={e} label={e} value={e} />
-          ))}
-        </Picker>
-      </View>
+      <EstatePicker value={estate} onChange={setEstate} placeholder="Select estate..." />
 
       <Input
         label="Duration (weeks, optional)"
@@ -231,13 +223,6 @@ const styles = StyleSheet.create({
   content: { padding: 20, paddingBottom: 40 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   label: { fontSize: 14, fontWeight: '600', color: '#333', marginBottom: 6 },
-  pickerContainer: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 12,
-    marginBottom: 16,
-    backgroundColor: '#f9f9f9',
-  },
   sectionTitle: { fontSize: 18, fontWeight: '700', color: '#1a1a2e', marginBottom: 12, marginTop: 8 },
   remunerationRow: { flexDirection: 'row', gap: 12 },
   remunerationField: { flex: 1 },
